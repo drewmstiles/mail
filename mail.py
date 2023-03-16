@@ -8,6 +8,7 @@ import sys
 import re
 import pprint
 import pytz
+import numpy as np
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
 
@@ -27,15 +28,17 @@ def get_message_header(msg_id, header, server):
     return msg[header].replace('\r\n', '')
 
 
-def delete_message(server, msg_id):
+def delete_messages(server, msg_ids):
 
-    typ, data = server.store(str(msg_id), '+FLAGS', '\\Deleted')
+    msg_ids_str = str(",".join(msg_ids))
+
+    typ, data = server.store(msg_ids_str, '+FLAGS', '\\Deleted')
     success = typ == 'OK'
 
     if success:
-        logging.debug(f"Successfully flagged {msg_id} for deletion")
+        logging.debug(f"Successfully flagged {msg_ids_str} for deletion")
     else:
-        logging.error(f"Failed to flag {msg_id} for deletion")
+        logging.error(f"Failed to flag {msg_ids_str} for deletion")
 
     return success
 
@@ -46,7 +49,7 @@ def copy_message(server, msg_id, folder):
         typ, data = server.copy(str(msg_id), args.destination)
         if typ == 'OK':
             logging.info(f"Copied message from '{args.source}' to '{args.destination}'")
-            delete_message(server, msg_id)
+            delete_messages(server, [str(msg_id)])
             return True
         elif data[0].decode() == '[TRYCREATE] Mailbox does not exist':
             logging.debug(f"Folder  '{args.destination}' does not exist, creating...")
@@ -56,16 +59,18 @@ def copy_message(server, msg_id, folder):
             return False
 
 
-def delete_folder(folder, server):
+def delete_folder(server, args):
+
+    folder = args.folder
 
     status, count_tuple = server.select(folder)
     count = int(count_tuple[0])
     logging.info(f"Deleting {count} messages in {folder}")
 
-    for msg_id in range(1, count):
-        delete_message(server, msg_id)
-        subject = get_message_header(msg_id, 'subject', server)
-        logging.debug(f"DELETE {msg_id} SUBJECT '{subject}'")
+
+    for msg_ids in np.array_split(list(range(1, count)), count / 200):
+        delete_messages(server, list(msg_ids))
+        logging.debug(f"DELETE {msg_ids[0]}-{msg_ids[-1]}")
 
     server.expunge()
 
@@ -151,8 +156,9 @@ def parse_args():
     list_parser.set_defaults(func=list_folder)
 
     delete_parser = subparsers.add_parser("delete", description="List the messages in a given folder")
-    delete_parser.add_argument('-s', '--src', dest='source',
+    delete_parser.add_argument('-f', '--folder', dest='folder',
                         required=True, help='The mailbox folder to delete')
+    delete_parser.set_defaults(func=delete_folder)
 
     move_parser = subparsers.add_parser("move", description="Moves messages from source folder to destination folder")
     move_parser.add_argument('-s', '--src', dest='source',
@@ -161,14 +167,14 @@ def parse_args():
     move_parser.add_argument('-d', '--dst', dest='destination',
                                required=True, help='The mailbox folder to move messages to')
 
-    move_parser.add_argument('-p', '--pattern', dest='pattern',
+    move_parser.add_argument('--pattern', dest='pattern',
                              required=True, help='The pattern to look for in message subjects')
     move_parser.set_defaults(func=move_folder)
 
     prune_parser = subparsers.add_parser("prune", description="Removes messages older than given number of days")
     prune_parser.add_argument('-d', '--days', dest='days',
                               required=True, help='Number of days in the past for which messages older will be removed')
-    prune_parser.add_argument('-p', '--pattern', dest='pattern',
+    prune_parser.add_argument('--pattern', dest='pattern',
                              required=True, help='The pattern to match folder names on')
 
     prune_parser.set_defaults(func=prune_folders)
@@ -185,7 +191,7 @@ def parse_args():
 if __name__ == '__main__':
 
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='[%(asctime)-15s][%(levelname)-5s] %(message)s'
     )
 
