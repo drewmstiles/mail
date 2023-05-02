@@ -9,6 +9,7 @@ import re
 import pprint
 import pytz
 import numpy as np
+from getpass import getpass
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
 
@@ -144,9 +145,6 @@ def parse_args():
     parser.add_argument('-e', '--email', dest='email',
                         required=True, help='Your email address')
 
-    parser.add_argument('-p', '--password', dest='password',
-                        required=True, help='Your password')
-
     parser.add_argument('--host', dest='host',
                         required=True, help='The IMAP server hostname')
 
@@ -196,7 +194,8 @@ if __name__ == '__main__':
     )
 
     args = parse_args()
-    server = init_server(args.host, args.email, args.password)
+    password = getpass()
+    server = init_server(args.host, args.email, password)
     args.func(server, args)
 
     server.close()
