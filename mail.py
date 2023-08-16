@@ -24,7 +24,7 @@ def get_message(msg_id, server):
     return None
 
 
-def normalize_cc_fields(header):
+def normalize_fields(header):
 
     items = [ field.strip() for field in header.split(',') ]
 
@@ -43,9 +43,9 @@ def get_message_header(msg_id, header_name, server):
     if header is None:
         return []
     else:
-        if header_name.lower() == 'cc':
-            return normalize_cc_fields(header)
-        elif header_name.lower() == 'subject':
+        if header_name == 'cc' or header_name == 'to':
+            return normalize_fields(header)
+        elif header_name == 'subject':
             return [ header.replace('\r\n', '') ]
         else:
             logging.error(f"Unknown header type '{header_name}' requested.")
@@ -112,7 +112,7 @@ def move_folder(server, args):
     status, count_tuple = server.select(args.source)
 
     for msg_id in range(1, int(count_tuple[0])):
-        fields = get_message_header(msg_id, args.field, server)
+        fields = get_message_header(msg_id, args.field.lower(), server)
         for field in fields:
             if re.match(args.pattern, field):
                 logging.debug(f"Pattern '{args.pattern}' matches field '{args.field}' in message '{msg_id}'.")
