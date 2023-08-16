@@ -24,9 +24,32 @@ def get_message(msg_id, server):
     return None
 
 
-def get_message_header(msg_id, header, server):
+def normalize_cc_fields(header):
+
+    items = [ field.strip() for field in header.split(',') ]
+
+    normalized = []
+    for i in items:
+        normalized.append(email.utils.parseaddr(i)[-1])
+
+    return normalized
+
+
+def get_message_header(msg_id, header_name, server):
+
     msg = get_message(msg_id, server)
-    return msg[header].replace('\r\n', '')
+    header = msg[header_name]
+
+    if header is None:
+        return []
+    else:
+        if header_name.lower() == 'cc':
+            return normalize_cc_fields(header)
+        elif header_name.lower() == 'subject':
+            return [ header.replace('\r\n', '') ]
+        else:
+            logging.error(f"Unknown header type '{header_name}' requested.")
+            sys.exit(1)
 
 
 def delete_messages(server, msg_ids):
@@ -89,10 +112,14 @@ def move_folder(server, args):
     status, count_tuple = server.select(args.source)
 
     for msg_id in range(1, int(count_tuple[0])):
-        subject = get_message_header(msg_id, 'subject', server)
-        if re.match(args.pattern, subject):
-            logging.debug(f"Found match on '{subject}'")
-            copy_message(server, msg_id, args.destination)
+        fields = get_message_header(msg_id, args.field, server)
+        for field in fields:
+            if re.match(args.pattern, field):
+                logging.debug(f"Pattern '{args.pattern}' matches field '{args.field}' in message '{msg_id}'.")
+                copy_message(server, msg_id, args.destination)
+            else:
+                ...
+
 
     server.expunge()
 
@@ -167,6 +194,10 @@ def parse_args():
 
     move_parser.add_argument('--pattern', dest='pattern',
                              required=True, help='The pattern to look for in message subjects')
+
+    move_parser.add_argument('--field', dest='field',
+                             default='subject', help='The message field which "pattern" will be matched against.')
+
     move_parser.set_defaults(func=move_folder)
 
     prune_parser = subparsers.add_parser("prune", description="Removes messages older than given number of days")
