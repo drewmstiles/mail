@@ -5,13 +5,17 @@ import ssl
 import email
 import logging
 import sys
+import os
 import re
 import pprint
 import pytz
+import stat
 import numpy as np
 from getpass import getpass
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
+
+PW_CACHE = '/tmp/mail-pw.txt'
 
 def get_message(msg_id, server):
 
@@ -217,6 +221,19 @@ def parse_args():
         return args
 
 
+def get_password():
+
+    if os.path.isfile(PW_CACHE):
+        with open(PW_CACHE, 'r') as f:
+            return f.read().strip()
+    else:
+        password = getpass()
+        with open(PW_CACHE, 'w') as f:
+            f.write(password)
+            os.chmod(PW_CACHE, stat.S_IWUSR | stat.S_IRUSR)
+        return password
+
+
 if __name__ == '__main__':
 
     logging.basicConfig(
@@ -225,7 +242,7 @@ if __name__ == '__main__':
     )
 
     args = parse_args()
-    password = getpass()
+    password = get_password()
     server = init_server(args.host, args.email, password)
     args.func(server, args)
 
