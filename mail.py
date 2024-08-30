@@ -254,8 +254,10 @@ def get_password():
 
 if __name__ == '__main__':
 
+    log_level = logging.DEBUG if int(os.environ.get('PY_DEBUG', 0)) == 1 else logging.INFO
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format='[%(asctime)-15s][%(levelname)-5s] %(message)s'
     )
 
