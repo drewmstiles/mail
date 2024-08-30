@@ -24,7 +24,7 @@ def get_message(msg_id, server):
         if isinstance(entry, tuple):
             return email.message_from_bytes(entry[1])
 
-    logging.warning("No message found for message ID '{msg_id}'")
+    logging.warning(f"No message found for message ID '{msg_id}'")
     return None
 
 
@@ -80,7 +80,7 @@ def copy_message(server, msg_id, folder):
             delete_messages(server, [str(msg_id)])
             return True
         elif data[0].decode() == '[TRYCREATE] Mailbox does not exist':
-            logging.debug(f"Folder  '{args.destination}' does not exist, creating...")
+            logging.info(f"Folder  '{args.destination}' does not exist, creating...")
             result = server.create(args.destination)
         else:
             logging.error(f"Failed to copy message '{msg_id}', ERROR '{data}'")
@@ -115,11 +115,15 @@ def move_folder(server, args):
 
     status, count_tuple = server.select(args.source)
 
+    logging.info(f"Moving messages from folder '{args.source}' to '{args.destination}'")
+
     for msg_id in range(1, int(count_tuple[0])):
+        logging.debug(f"Operating on message ID '{msg_id}'")
         fields = get_message_header(msg_id, args.field.lower(), server)
         for field in fields:
+            logging.debug(f"Checking field '{field}' for match on pattern '{args.pattern}'")
             if re.match(args.pattern, field):
-                logging.debug(f"Pattern '{args.pattern}' matches field '{args.field}' in message '{msg_id}'.")
+                logging.info(f"Pattern '{args.pattern}' matches field '{args.field}' in message '{msg_id}'.")
                 copy_message(server, msg_id, args.destination)
             else:
                 ...
@@ -237,7 +241,7 @@ def get_password():
 if __name__ == '__main__':
 
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format='[%(asctime)-15s][%(levelname)-5s] %(message)s'
     )
 
