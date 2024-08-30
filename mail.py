@@ -50,7 +50,7 @@ def get_message_header(msg_id, header_name, server):
     if header is None:
         return []
     else:
-        if header_name == 'cc' or header_name == 'to':
+        if header_name == 'cc' or header_name == 'to' or header_name == 'from':
             return normalize_fields(header)
         elif header_name == 'subject':
             return [ header.replace('\r\n', '') ]
