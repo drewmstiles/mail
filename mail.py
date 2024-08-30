@@ -136,7 +136,7 @@ def move_folder(server, args):
         fields = get_message_header(msg_id, args.field.lower(), server)
         for field in fields:
             logging.debug(f"Checking field '{field}' for match on pattern '{args.pattern}'")
-            if re.match(args.pattern, field):
+            if re.search(args.pattern, field):
                 logging.info(f"Pattern '{args.pattern}' matches field '{args.field}' in message '{msg_id}'.")
                 copy_message(server, msg_id, args.destination)
             else:
