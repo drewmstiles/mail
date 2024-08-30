@@ -10,12 +10,15 @@ import re
 import pprint
 import pytz
 import stat
+import math
 import numpy as np
 from getpass import getpass
 from datetime import datetime, timedelta
 from argparse import ArgumentParser
 
 PW_CACHE = '/tmp/mail-pw.txt'
+OK = 'OK'
+NUM_MBOX_CHUNKS = 200
 
 def get_message(msg_id, server):
 
@@ -89,18 +92,29 @@ def copy_message(server, msg_id, folder):
 
 def delete_folder(server, args):
 
-    folder = args.folder
+    folder = f'"{args.folder}"'
 
     status, count_tuple = server.select(folder)
-    count = int(count_tuple[0])
-    logging.info(f"Deleting {count} messages in {folder}")
+
+    if status != OK:
+        logging.error(f"Unable to select mailbox {folder}")
+        sys.exit(1)
+    else:
+        count = int(count_tuple[0])
+
+        if count < 1:
+            logging.info(f"No messages found in {folder}")
+        else:
+            logging.info(f"Deleting {count} messages in {folder}")
+            for msg_ids in np.array_split(list(range(1, count + 1)), math.ceil(count / NUM_MBOX_CHUNKS)):
+                delete_messages(server, [ str(i) for i in list(msg_ids) ] )
+                logging.debug(f"DELETE {msg_ids[0]}-{msg_ids[-1]}")
 
 
-    for msg_ids in np.array_split(list(range(1, count)), count / 200):
-        delete_messages(server, list(msg_ids))
-        logging.debug(f"DELETE {msg_ids[0]}-{msg_ids[-1]}")
+        server.delete(folder)
+        server.expunge()
 
-    server.expunge()
+        logging.info(f"Deleted mailbox {folder}")
 
 
 def list_folder(server, args):
